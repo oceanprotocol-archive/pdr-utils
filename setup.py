@@ -17,6 +17,9 @@ install_requirements = [
 # Required to run setup.py:
 setup_requirements = ["pytest-runner"]
 
+with open("README.md", encoding="utf8") as readme_file:
+    readme = readme_file.read()
+
 setup(
     author="oceanprotocol",
     author_email="devops@oceanprotocol.com",
@@ -31,6 +34,8 @@ setup(
     install_requires=install_requirements,
     name="pdr-utils",
     license="Apache Software License 2.0",
+    long_description=readme,
+    long_description_content_type="text/markdown",
     include_package_data=True,
     packages=find_packages(
         include=[
