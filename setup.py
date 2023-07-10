@@ -47,7 +47,7 @@ setup(
     url="https://github.com/oceanprotocol/pdr-utils",
     # fmt: off
     # bumpversion needs single quotes
-    version='0.0.2',
+    version='0.0.3',
     # fmt: on
     zip_safe=False,
 )
