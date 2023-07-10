@@ -29,6 +29,7 @@ setup(
     ],
     description="Predictoor utils lib.",
     install_requires=install_requirements,
+    name="pdr-utils",
     license="Apache Software License 2.0",
     include_package_data=True,
     packages=find_packages(
