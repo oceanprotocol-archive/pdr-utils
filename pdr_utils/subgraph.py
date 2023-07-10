@@ -1,5 +1,6 @@
 import os
 import requests
+from web3 import Web3
 
 
 def query_subgraph(query):
@@ -12,6 +13,57 @@ def query_subgraph(query):
         )
     result = request.json()
     return result
+
+
+def satisfies_filters(nft_data, filters):
+    if not nft_data:
+        return True
+
+    for filter_key, filter_values in filters.items():
+        if not filter_values:
+            continue
+
+        values = [
+            nft_data_item["value"] for nft_data_item in nft_data
+            if nft_data_item["key"] == Web3.keccak(filter_key.encode("utf-8")).hex()
+        ]
+
+        if not values:
+            return False
+
+        value = values[0]
+
+        if value not in filter_values:
+            return False
+
+    return True
+
+
+def hexify_keys(env_var):
+    keys = os.getenv(env_var, None)
+
+    if not keys:
+        return None
+
+    keys = keys.split(",")
+
+    return [Web3.to_hex(text=key) for key in keys]
+
+
+def filter_contracts(new_orders):
+    filters = {
+        "pair": hexify_keys("PAIR_FILTER"),
+        "timeframe": hexify_keys("TIMEFRAME_FILTER"),
+        "source": hexify_keys("SOURCE_FILTER")
+    }
+
+    return [
+        new_order for new_order in new_orders
+        if satisfies_filters(
+            new_order["token"]["nft"]["nftData"],
+            filters
+        )
+    ]
 
 
 def get_all_interesting_prediction_contracts():
@@ -28,6 +80,12 @@ def get_all_interesting_prediction_contracts():
                     id
                     name
                     symbol
+                    nft {
+                        nftData {
+                            key
+                            value
+                        }
+                    }
                 }
                 blocksPerEpoch
                 blocksPerSubscription
@@ -41,7 +99,7 @@ def get_all_interesting_prediction_contracts():
         offset += chunk_size
         try:
             result = query_subgraph(query)
-            new_orders = result["data"]["predictContracts"]
+            new_orders = filter_contracts(result["data"]["predictContracts"])
 
             if new_orders == []:
                 break
