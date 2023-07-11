@@ -29,7 +29,7 @@ def satisfies_filters(nft_data, filters):
         ]
 
         if not values:
-            return False
+            continue
 
         value = values[0]
 
