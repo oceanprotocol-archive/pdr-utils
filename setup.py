@@ -14,6 +14,7 @@ install_requirements = [
     "bumpversion",
     "requests",
     "web3",
+    "coverage",
 ]
 
 # Required to run setup.py:

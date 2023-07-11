@@ -1,5 +1,5 @@
 from web3 import Web3
-from pdr_utils.subgraph import satisfies_filters
+from pdr_utils.subgraph import satisfies_filters, hexify_keys
 
 
 encoded_pair = Web3.keccak("pair".encode("utf-8")).hex()
@@ -28,6 +28,14 @@ def test_satisfies_filters():
             {"key": "another", "value": "0x1234"},
             {"key": "another3", "value": "0x12345"},
         ], {"pair": ["0x1234"]}
+    )
+
+    assert satisfies_filters(
+        [
+            {"key": encoded_pair, "value": "0x123"},
+            {"key": "another", "value": "0x1234"},
+            {"key": "another3", "value": "0x12345"},
+        ], {"pair": []}
     )
 
     # multiple filters both matching
@@ -66,3 +74,12 @@ def test_satisfies_filters():
             {"key": "another3", "value": "0x12345"},
         ], {"pair": ["0x123"], "timeframe": ["0x123"]}
     )
+
+
+def test_hexify_keys(monkeypatch):
+    monkeypatch.setenv("PAIR_FILTER", "0x123,0x456")
+    monkeypatch.setenv("TIMEFRAME_FILTER", "")
+
+    assert hexify_keys("PAIR_FILTER") == ["0x3078313233", "0x3078343536"]
+    assert hexify_keys("TIMEFRAME_FILTER") is None
+    assert hexify_keys("SOURCE_FILTER") is None
