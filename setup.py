@@ -12,6 +12,9 @@ install_requirements = [
     "enforce_typing",
     "pylint",
     "bumpversion",
+    "requests",
+    "web3",
+    "coverage",
 ]
 
 # Required to run setup.py:
