@@ -57,13 +57,15 @@ def filter_contracts(new_orders):
         "source": hexify_keys("SOURCE_FILTER")
     }
 
-    return [
+    pts_filtered = [
         new_order for new_order in new_orders
         if satisfies_filters(
             new_order["token"]["nft"]["nftData"],
             filters
         )
     ]
+
+    return pts_filtered
 
 
 def get_all_interesting_prediction_contracts():
@@ -81,6 +83,9 @@ def get_all_interesting_prediction_contracts():
                     name
                     symbol
                     nft {
+                        owner {
+                            id
+                        }
                         nftData {
                             key
                             value
