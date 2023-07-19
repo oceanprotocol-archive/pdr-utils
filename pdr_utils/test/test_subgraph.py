@@ -1,5 +1,6 @@
+import pytest
 from web3 import Web3
-from pdr_utils.subgraph import satisfies_filters, hexify_keys
+from pdr_utils.subgraph import satisfies_filters, hexify_keys, filter_by_owners
 
 
 encoded_pair = Web3.keccak("pair".encode("utf-8")).hex()
@@ -83,3 +84,41 @@ def test_hexify_keys(monkeypatch):
     assert hexify_keys("PAIR_FILTER") == ["0x3078313233", "0x3078343536"]
     assert hexify_keys("TIMEFRAME_FILTER") is None
     assert hexify_keys("SOURCE_FILTER") is None
+
+
+@pytest.mark.parametrize(
+    "contracts, owner_addrs, expected_result",
+    [
+        (
+            [
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address2"}}}},
+                {"token": {"nft": {"owner": {"id": "address3"}}}}
+            ],
+            ["address1", "address3"],
+            [
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address3"}}}}
+            ]
+        ),
+        (
+            [
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address3"}}}}
+            ],
+            ["address1", "address2"],
+            [
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+                {"token": {"nft": {"owner": {"id": "address1"}}}},
+            ]
+        ),
+    ]
+)
+def test_filter_by_owners(contracts, owner_addrs, expected_result):
+    result = filter_by_owners(contracts, owner_addrs)
+    assert result == expected_result
