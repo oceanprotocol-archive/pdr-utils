@@ -2,7 +2,7 @@ import os
 import requests
 from web3 import Web3
 
-OPF_OWNER_ADDRS = "" # owner addrs, separated by comma
+OPF_OWNER_ADDRS = "" # default owner addrs, separated by comma
 
 def query_subgraph(query):
     subgraph_url = os.getenv("SUBGRAPH_URL")
