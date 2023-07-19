@@ -2,6 +2,7 @@ import os
 import requests
 from web3 import Web3
 
+OPF_DEPLOYER_ADDRS = "" # deployer addrs, separated by comma
 
 def query_subgraph(query):
     subgraph_url = os.getenv("SUBGRAPH_URL")
@@ -50,20 +51,28 @@ def hexify_keys(env_var):
     return [Web3.to_hex(text=key) for key in keys]
 
 
-def filter_contracts(new_orders):
+def filter_contracts(contracts):
+    deployer_addrs = os.getenv("DEPLOYER_ADDRS", deployer_addrs).split(",")
+
+    deployer_filtered_contracts = [
+        contract for contract in contracts
+        if contract["token"]["nft"]["owner"]["id"] in deployer_addrs
+    ]
+
     filters = {
         "pair": hexify_keys("PAIR_FILTER"),
         "timeframe": hexify_keys("TIMEFRAME_FILTER"),
         "source": hexify_keys("SOURCE_FILTER")
     }
 
-    pts_filtered = [
-        new_order for new_order in new_orders
+    filtered = [
+        contract for contract in deployer_filtered_contracts
         if satisfies_filters(
-            new_order["token"]["nft"]["nftData"],
+            contract["token"]["nft"]["nftData"],
             filters
         )
     ]
+
 
     return pts_filtered
 
