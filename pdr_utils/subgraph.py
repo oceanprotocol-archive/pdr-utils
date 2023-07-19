@@ -73,7 +73,6 @@ def filter_contracts(contracts):
         )
     ]
 
-
     return pts_filtered
 
 
