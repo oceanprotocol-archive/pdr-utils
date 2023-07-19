@@ -51,13 +51,15 @@ def hexify_keys(env_var):
     return [Web3.to_hex(text=key) for key in keys]
 
 
-def filter_contracts(contracts):
-    owner_addrs = os.getenv("OWNER_ADDRS", owner_addrs).split(",")
-
-    owner_filtered_contracts = [
+def filter_by_owners(contracts, owner_addrs):
+    return [
         contract for contract in contracts
         if contract["token"]["nft"]["owner"]["id"] in owner_addrs
     ]
+
+def filter_contracts(contracts):
+    owner_addrs = os.getenv("OWNER_ADDRS", owner_addrs).split(",")
+    owner_filtered_contracts = filter_by_owners(contracts, owner_addrs)
 
     filters = {
         "pair": hexify_keys("PAIR_FILTER"),
