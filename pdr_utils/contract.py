@@ -245,6 +245,33 @@ class PredictorContract:
     def get_prediction(self,slot):
         return self.contract_instance.functions.getPrediction(slot).call({"from":owner})
 
+    def submit_trueval(self,true_val,block,float_value,cancel_round):
+        gasPrice = w3.eth.gas_price
+        try:
+            fl_value=w3.to_wei(str(float_value),'ether')
+            tx = self.contract_instance.functions.submitTrueVal(block,true_val,fl_value,cancel_round).transact({"from":owner,"gasPrice":gasPrice})
+            print(f"Submitted trueval, txhash: {tx.hex()}")
+            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            return receipt
+        except Exception as e:
+            print(e)
+            return None
+    
+    def redeem_unused_slot_revenue(self,block):
+        gasPrice = w3.eth.gas_price
+        try:
+            tx = self.contract_instance.functions.redeemUnusedSlotRevenue(block).transact({"from":owner,"gasPrice":gasPrice})
+            print(f"redeem_unused_slot_revenue tx: {tx.hex()}")
+            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            return receipt
+        except Exception as e:
+            print(e)
+            return None
+
+    def get_block(self,block):
+        return w3.eth.get_block(block)
+    
+
 class FixedRate:
     def __init__(self, address):
         self.contract_address = w3.to_checksum_address(address)
