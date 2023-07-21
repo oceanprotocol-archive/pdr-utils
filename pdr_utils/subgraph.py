@@ -150,12 +150,14 @@ def get_consume_so_far(predictoor_contracts, week_start_timestamp, consumer_addr
             if new_orders == []:
                 break
             for order in new_orders:
-                if order["id"] in predictoor_contracts:
-                    if len(order["token"]["orders"]) > 0:
-                        for buy in order["token"]["orders"]:
-                            consume_so_far = consume_so_far + float(
-                                buy["lastPriceValue"]
-                            )
+                if order["id"] not in predictoor_contracts:
+                    continue
+                if len(order["token"]["orders"]) == 0:
+                    continue
+                for buy in order["token"]["orders"]:
+                    consume_so_far = consume_so_far + float(
+                        buy["lastPriceValue"]
+                    )
         except Exception as e:
             print(e)
             return consume_so_far
