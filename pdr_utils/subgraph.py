@@ -24,7 +24,8 @@ def satisfies_filters(nft_data, filters):
             continue
 
         values = [
-            nft_data_item["value"] for nft_data_item in nft_data
+            nft_data_item["value"]
+            for nft_data_item in nft_data
             if nft_data_item["key"] == Web3.keccak(filter_key.encode("utf-8")).hex()
         ]
 
@@ -54,15 +55,13 @@ def filter_contracts(new_orders):
     filters = {
         "pair": hexify_keys("PAIR_FILTER"),
         "timeframe": hexify_keys("TIMEFRAME_FILTER"),
-        "source": hexify_keys("SOURCE_FILTER")
+        "source": hexify_keys("SOURCE_FILTER"),
     }
 
     return [
-        new_order for new_order in new_orders
-        if satisfies_filters(
-            new_order["token"]["nft"]["nftData"],
-            filters
-        )
+        new_order
+        for new_order in new_orders
+        if satisfies_filters(new_order["token"]["nft"]["nftData"], filters)
     ]
 
 
@@ -116,3 +115,48 @@ def get_all_interesting_prediction_contracts():
             print(e)
             return {}
     return contracts
+
+
+def get_consume_so_far(predictoor_contracts, week_start_timestamp, consumer_address):
+    chunk_size = 1000  # max for subgraph = 1000
+    offset = 0
+    consume_so_far = 0
+    while True:
+        query = """
+        {
+            predictContracts(skip:%s, first:%s){
+                id	
+                token{
+                    orders(where: {createdTimestamp_gt:%s, consumer_in:["%s"]}){
+        		        createdTimestamp
+                        consumer {
+                            id
+                        }
+                        lastPriceValue
+                    }
+                }
+            }
+        }
+        """ % (
+            offset,
+            chunk_size,
+            week_start_timestamp,
+            consumer_address.lower(),
+        )
+        offset += chunk_size
+        try:
+            result = query_subgraph(query)
+            new_orders = result["data"]["predictContracts"]
+            if new_orders == []:
+                break
+            for order in new_orders:
+                if order["id"] in predictoor_contracts:
+                    if len(order["token"]["orders"]) > 0:
+                        for buy in order["token"]["orders"]:
+                            consume_so_far = consume_so_far + float(
+                                buy["lastPriceValue"]
+                            )
+        except Exception as e:
+            print(e)
+            return consume_so_far
+    return consume_so_far
