@@ -25,11 +25,32 @@ account: LocalAccount = Account.from_key(private_key)
 owner = account.address
 w3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
+class ContractConfig:
+    def __init__(self, rpc_url: str, private_key: str):
+        self.rpc_url = rpc_url or os.environ.get("RPC_URL")
+
+        if rpc_url is None:
+            raise ValueError("You must set RPC_URL environment variable")
+
+        if private_key is None:
+            raise ValueError("You must set PRIVATE_KEY environment variable")
+
+        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+
+        if private_key is not None:
+            if not private_key.startswith("0x"):
+                raise ValueError("Private key must start with 0x hex prefix")
+            self.account: LocalAccount = Account.from_key(private_key)
+            self.owner = self.account.address
+            self.w3.middleware_onion.add(construct_sign_and_send_raw_middleware(self.account))
+
+
 
 class Token:
-    def __init__(self, address):
-        self.contract_address = w3.to_checksum_address(address)
-        self.contract_instance = w3.eth.contract(address=w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
+    def __init__(self, config: ContractConfig, address: str):
+        self.contract_address = config.w3.to_checksum_address(address)
+        self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
+        self.config = config
     
     def allowance(self,account,spender):
         return self.contract_instance.functions.allowance(account,spender).call()
@@ -49,11 +70,12 @@ class Token:
 
 
 class PredictorContract:
-    def __init__(self, address):
-        self.contract_address = w3.to_checksum_address(address)
-        self.contract_instance = w3.eth.contract(address=w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
+    def __init__(self, config: ContractConfig, address: str):
+        self.config = config
+        self.contract_address = config.w3.to_checksum_address(address)
+        self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
+        self.token = Token(config, stake_token)
         stake_token=self.get_stake_token()
-        self.token = Token(stake_token)
 
     def is_valid_subscription(self):
         return self.contract_instance.functions.isValidSubscription(owner).call()
@@ -273,9 +295,10 @@ class PredictorContract:
     
 
 class FixedRate:
-    def __init__(self, address):
-        self.contract_address = w3.to_checksum_address(address)
-        self.contract_instance = w3.eth.contract(address=w3.to_checksum_address(address), abi=get_contract_abi('FixedRateExchange'))
+    def __init__(self, config: ContractConfig, address: str):
+        self.contract_address = config.w3.to_checksum_address(address)
+        self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('FixedRateExchange'))
+        self.config = config
 
     def get_dt_price(self, exchangeId):
         return self.contract_instance.functions.calcBaseInGivenOutDT(exchangeId,w3.to_wei('1','ether'),0).call()
