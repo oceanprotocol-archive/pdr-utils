@@ -13,17 +13,6 @@ from web3 import Web3, HTTPProvider, WebsocketProvider
 from web3.middleware import construct_sign_and_send_raw_middleware
 from os.path import expanduser
 
-rpc_url = os.environ.get("RPC_URL")
-assert rpc_url is not None, "You must set RPC_URL environment variable"
-private_key = os.environ.get("PRIVATE_KEY")
-assert private_key is not None, "You must set PRIVATE_KEY environment variable"
-assert private_key.startswith("0x"), "Private key must start with 0x hex prefix"
-
-# instantiate Web3 instance
-w3 = Web3(Web3.HTTPProvider(rpc_url))
-account: LocalAccount = Account.from_key(private_key)
-owner = account.address
-w3.middleware_onion.add(construct_sign_and_send_raw_middleware(account))
 
 class ContractConfig:
     def __init__(self, rpc_url: str, private_key: str):
