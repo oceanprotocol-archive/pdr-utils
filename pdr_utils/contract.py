@@ -13,6 +13,10 @@ from web3 import Web3, HTTPProvider, WebsocketProvider
 from web3.middleware import construct_sign_and_send_raw_middleware
 from os.path import expanduser
 
+import artifacts  # noqa
+
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+keys = KeyAPI(NativeECCBackend)
 
 class ContractConfig:
     def __init__(self, rpc_url: str, private_key: str):
@@ -336,8 +340,8 @@ def get_contract_filename(contract_name):
             ), f"Found path = '{path}' via glob, yet path.exists() is False"
             return path
     # didn't find locally, so use use artifacts lib
-    #path = os.path.join(os.path.dirname(artifacts.__file__), "", contract_basename)
-    #path = Path(path).expanduser().resolve()
-    #if not path.exists():
-    #    raise TypeError(f"Contract '{contract_name}' not found in artifacts.")
+    path = os.path.join(os.path.dirname(artifacts.__file__), "", contract_basename)
+    path = Path(path).expanduser().resolve()
+    if not path.exists():
+        raise TypeError(f"Contract '{contract_name}' not found in artifacts.")
     return path
