@@ -17,7 +17,7 @@ install_requirements = [
     "coverage",
     "eth-account",
     "pathlib",
-    "eth-keys"
+    "eth-keys",
     "ocean-contracts==2.0.0a2"
 ]
 
