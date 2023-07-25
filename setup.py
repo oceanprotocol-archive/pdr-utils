@@ -15,6 +15,10 @@ install_requirements = [
     "requests",
     "web3",
     "coverage",
+    "eth-account",
+    "pathlib",
+    "eth-keys",
+    "ocean-contracts==2.0.0a2"
 ]
 
 # Required to run setup.py:
