@@ -203,7 +203,7 @@ class PredictorContract:
             return
         (fixed_rate_address,exchange_id) = fixed_rates[0]
         # get datatoken price
-        exchange = FixedRate(fixed_rate_address)
+        exchange = FixedRate(self.config,fixed_rate_address)
         (baseTokenAmount, oceanFeeAmount, publishMarketFeeAmount,consumeMarketFeeAmount) = exchange.get_dt_price(exchange_id)
         return baseTokenAmount
     
@@ -251,10 +251,9 @@ class PredictorContract:
     
     def submit_prediction(self,predicted_value,stake_amount,prediction_block):
         """ Sumbits a prediction"""
-        stake_token = Token(self.contract_instance.functions.stakeToken().call())
         # TO DO - check allowence
         amount_wei = self.config.w3.to_wei(str(stake_amount),'ether')
-        stake_token.approve(self.contract_address,amount_wei)
+        self.token.approve(self.contract_address,amount_wei)
         gasPrice = self.config.w3.eth.gas_price
         try:
             tx = self.contract_instance.functions.submitPredval(predicted_value,amount_wei,prediction_block).transact({"from":self.config.owner,"gasPrice":gasPrice})
