@@ -35,7 +35,9 @@ class Web3Config:
                 raise ValueError("Private key must start with 0x hex prefix")
             self.account: LocalAccount = Account.from_key(private_key)
             self.owner = self.account.address
+            self.private_key = private_key
             self.w3.middleware_onion.add(construct_sign_and_send_raw_middleware(self.account))
+            
 
 
 
@@ -51,13 +53,14 @@ class Token:
     def balanceOf(self,account):
         return self.contract_instance.functions.balanceOf(account).call()
     
-    def approve(self,spender,amount):
+    def approve(self,spender,amount,wait_for_receipt=True):
         gasPrice = self.config.w3.eth.gas_price
         #print(f"Approving {amount} for {spender} on contract {self.contract_address}")
         try:
             tx = self.contract_instance.functions.approve(spender,amount).transact({"from":self.config.owner,"gasPrice":gasPrice})
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
+            if wait_for_receipt:
+                self.config.w3.eth.wait_for_transaction_receipt(tx)
+            return tx
         except:
             return None
 
@@ -114,15 +117,19 @@ class PredictorContract:
             "validUntil": valid_until,
         }
         return(auth)
+    def get_max_gas(self):
+        """ Returns max block gas"""
+        block = self.config.w3.eth.get_block("latest", full_transactions=False)
+        return int(block['gasLimit']*0.99)
     
-    def buy_and_start_subscription(self,gasLimit=None):
+    def buy_and_start_subscription(self,gasLimit=None,wait_for_receipt=True):
         """ Buys 1 datatoken and starts a subscription"""
         fixed_rates=self.get_exchanges()
         if not fixed_rates:
             return
         (fixed_rate_address,exchange_id) = fixed_rates[0]
         # get datatoken price
-        exchange = FixedRate(fixed_rate_address)
+        exchange = FixedRate(self.config,fixed_rate_address)
         (baseTokenAmount, oceanFeeAmount, publishMarketFeeAmount,consumeMarketFeeAmount) = exchange.get_dt_price(exchange_id)
         # approve
         self.token.approve(self.contract_instance.address,baseTokenAmount)
@@ -156,20 +163,23 @@ class PredictorContract:
                             0,
                             ZERO_ADDRESS,
                         )
-            
-            tx = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).build_transaction({"gas": gasLimit,'nonce': self.config.w3.eth.get_transaction_count(self.config.owner),"from":self.config.owner,"gasPrice":gasPrice})
-            
-            signed_txn = self.config.w3.eth.account.sign_transaction(tx,self.config.private_key)
-            
-            tx_id = self.config.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-            print(f"tx_id: {tx_id}")
-            #gas = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).estimate_gas({"from":owner,"gasPrice":gasPrice})
-            #print(f"gas: {gas}")
-            #tx_id = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).build_transaction({"from":owner,"gasPrice":gasPrice})
-            #print(f"tx_id: {tx_id}")
-            #receipt = w3.eth.wait_for_transaction_receipt(tx_id)
-            #print(f"receipt: {receipt}")
-            return tx_id
+            call_params = {
+                    "from":self.config.owner,
+                    "gasPrice": gasPrice,
+                    'nonce': self.config.w3.eth.get_transaction_count(self.config.owner),
+            }
+            if gasLimit is None:
+                try:    
+                    gasLimit = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).estimate_gas(call_params)
+                except Exception as e:
+                    print("Estimate gas failed")
+                    print(e)
+                    gasLimit=self.get_max_gas()
+            call_params['gas']=gasLimit+1
+            tx = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).transact(call_params)
+            if wait_for_receipt:
+                self.config.w3.eth.wait_for_transaction_receipt(tx)
+            return tx
         except Exception as e:
             print(e)
             return None
@@ -207,7 +217,7 @@ class PredictorContract:
         """ check subscription"""
         if not self.is_valid_subscription():
             print("Buying a new subscription...")
-            self.buy_and_start_subscription()
+            self.buy_and_start_subscription(None,True)
             time.sleep(1)
         try:
             print("Reading contract values...")
