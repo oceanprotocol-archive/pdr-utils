@@ -18,9 +18,9 @@ import artifacts  # noqa
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 keys = KeyAPI(NativeECCBackend)
 
-class ContractConfig:
+class Web3Config:
     def __init__(self, rpc_url: str, private_key: str):
-        self.rpc_url = rpc_url or os.environ.get("RPC_URL")
+        self.rpc_url = rpc_url
 
         if rpc_url is None:
             raise ValueError("You must set RPC_URL environment variable")
@@ -40,7 +40,7 @@ class ContractConfig:
 
 
 class Token:
-    def __init__(self, config: ContractConfig, address: str):
+    def __init__(self, config: Web3Config, address: str):
         self.contract_address = config.w3.to_checksum_address(address)
         self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
         self.config = config
@@ -52,18 +52,18 @@ class Token:
         return self.contract_instance.functions.balanceOf(account).call()
     
     def approve(self,spender,amount):
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         #print(f"Approving {amount} for {spender} on contract {self.contract_address}")
         try:
-            tx = self.contract_instance.functions.approve(spender,amount).transact({"from":owner,"gasPrice":gasPrice})
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            tx = self.contract_instance.functions.approve(spender,amount).transact({"from":self.config.owner,"gasPrice":gasPrice})
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except:
             return None
 
 
 class PredictorContract:
-    def __init__(self, config: ContractConfig, address: str):
+    def __init__(self, config: Web3Config, address: str):
         self.config = config
         self.contract_address = config.w3.to_checksum_address(address)
         self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
@@ -71,7 +71,7 @@ class PredictorContract:
         stake_token=self.get_stake_token()
 
     def is_valid_subscription(self):
-        return self.contract_instance.functions.isValidSubscription(owner).call()
+        return self.contract_instance.functions.isValidSubscription(self.config.owner).call()
     
     def get_empty_provider_fee(self):
         return {
@@ -92,29 +92,29 @@ class PredictorContract:
         return bytes(myBytes32, 'utf-8')
     def get_auth_signature(self):
         valid_until = int(time.time()) + 3600
-        message_hash = w3.solidity_keccak(
+        message_hash = self.config.w3.solidity_keccak(
         ["address", "uint256"],
         [
-            owner,
+            self.config.owner,
             valid_until
         ],
         )
-        pk = keys.PrivateKey(account.key)
+        pk = keys.PrivateKey(self.config.account.key)
         prefix = "\x19Ethereum Signed Message:\n32"
-        signable_hash = w3.solidity_keccak(
-            ["bytes", "bytes"], [w3.to_bytes(text=prefix), w3.to_bytes(message_hash)]
+        signable_hash = self.config.w3.solidity_keccak(
+            ["bytes", "bytes"], [self.config.w3.to_bytes(text=prefix), self.config.w3.to_bytes(message_hash)]
         )
         signed = keys.ecdsa_sign(message_hash=signable_hash, private_key=pk)
         auth = {
-            "userAddress": owner,
+            "userAddress": self.config.owner,
             "v": (signed.v + 27) if signed.v <= 1 else signed.v,
-            "r": w3.to_hex(w3.to_bytes(signed.r).rjust(32, b"\0")),
-            "s": w3.to_hex(w3.to_bytes(signed.s).rjust(32, b"\0")),
+            "r": self.config.w3.to_hex(self.config.w3.to_bytes(signed.r).rjust(32, b"\0")),
+            "s": self.config.w3.to_hex(self.config.w3.to_bytes(signed.s).rjust(32, b"\0")),
             "validUntil": valid_until,
         }
         return(auth)
     
-    def buy_and_start_subscription(self,gasLimit):
+    def buy_and_start_subscription(self,gasLimit=None):
         """ Buys 1 datatoken and starts a subscription"""
         fixed_rates=self.get_exchanges()
         if not fixed_rates:
@@ -126,11 +126,11 @@ class PredictorContract:
         # approve
         self.token.approve(self.contract_instance.address,baseTokenAmount)
         # buy 1 DT
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         provider_fees = self.get_empty_provider_fee()
         try:
             orderParams = (
-                            owner,
+                            self.config.owner,
                             0,
                             (
                                 ZERO_ADDRESS,
@@ -140,7 +140,7 @@ class PredictorContract:
                                 self.string_to_bytes32(''),
                                 self.string_to_bytes32(''),
                                 provider_fees["validUntil"],
-                                w3.to_bytes(b'') ,
+                                self.config.w3.to_bytes(b'') ,
                             ),
                             (   
                                 ZERO_ADDRESS,
@@ -149,18 +149,18 @@ class PredictorContract:
                             ),
                         )
             freParams=(
-                            w3.to_checksum_address(fixed_rate_address),
-                            w3.to_bytes(exchange_id),
+                            self.config.w3.to_checksum_address(fixed_rate_address),
+                            self.config.w3.to_bytes(exchange_id),
                             baseTokenAmount,
                             0,
                             ZERO_ADDRESS,
                         )
             
-            tx = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).build_transaction({"gas": gasLimit,'nonce': w3.eth.get_transaction_count(owner),"from":owner,"gasPrice":gasPrice})
+            tx = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).build_transaction({"gas": gasLimit,'nonce': self.config.w3.eth.get_transaction_count(self.config.owner),"from":self.config.owner,"gasPrice":gasPrice})
             
-            signed_txn = w3.eth.account.sign_transaction(tx,private_key)
+            signed_txn = self.config.w3.eth.account.sign_transaction(tx,self.config.private_key)
             
-            tx_id = w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+            tx_id = self.config.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
             print(f"tx_id: {tx_id}")
             #gas = self.contract_instance.functions.buyFromFreAndOrder(orderParams,freParams).estimate_gas({"from":owner,"gasPrice":gasPrice})
             #print(f"gas: {gas}")
@@ -173,7 +173,7 @@ class PredictorContract:
             print(e)
             return None
     
-    def buy_many(self,how_many,gasLimit):
+    def buy_many(self,how_many,gasLimit=None):
         if how_many<1:
             return
         print(f"Buying {how_many} accesses....")
@@ -211,7 +211,7 @@ class PredictorContract:
         try:
             print("Reading contract values...")
             auth = self.get_auth_signature()
-            (nom, denom) = self.contract_instance.functions.getAggPredval(block,auth).call({"from":owner})
+            (nom, denom) = self.contract_instance.functions.getAggPredval(block,auth).call({"from":self.config.owner})
             print(f" Got {nom} and {denom}")
             if denom==0:
                 return None
@@ -225,11 +225,11 @@ class PredictorContract:
     
     def payout(self,slot):
         """ Claims the payout for a slot"""
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         try:
-            tx = self.contract_instance.functions.payout(slot,owner).transact({"from":owner,"gasPrice":gasPrice})
+            tx = self.contract_instance.functions.payout(slot,self.config.owner).transact({"from":self.config.owner,"gasPrice":gasPrice})
             print(f"Submitted payout, txhash: {tx.hex()}")
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except Exception as e:
             print(e)
@@ -242,13 +242,13 @@ class PredictorContract:
         """ Sumbits a prediction"""
         stake_token = Token(self.contract_instance.functions.stakeToken().call())
         # TO DO - check allowence
-        amount_wei = w3.to_wei(str(stake_amount),'ether')
+        amount_wei = self.config.w3.to_wei(str(stake_amount),'ether')
         stake_token.approve(self.contract_address,amount_wei)
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         try:
-            tx = self.contract_instance.functions.submitPredval(predicted_value,amount_wei,prediction_block).transact({"from":owner,"gasPrice":gasPrice})
+            tx = self.contract_instance.functions.submitPredval(predicted_value,amount_wei,prediction_block).transact({"from":self.config.owner,"gasPrice":gasPrice})
             print(f"Submitted prediction, txhash: {tx.hex()}")
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except Exception as e:
             print(e)
@@ -258,50 +258,50 @@ class PredictorContract:
         return self.contract_instance.functions.trueValSubmitTimeoutBlock().call()
     
     def get_prediction(self,slot):
-        return self.contract_instance.functions.getPrediction(slot).call({"from":owner})
+        return self.contract_instance.functions.getPrediction(slot).call({"from":self.config.owner})
 
     def submit_trueval(self,true_val,block,float_value,cancel_round):
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         try:
-            fl_value=w3.to_wei(str(float_value),'ether')
-            tx = self.contract_instance.functions.submitTrueVal(block,true_val,fl_value,cancel_round).transact({"from":owner,"gasPrice":gasPrice})
+            fl_value=self.config.w3.to_wei(str(float_value),'ether')
+            tx = self.contract_instance.functions.submitTrueVal(block,true_val,fl_value,cancel_round).transact({"from":self.config.owner,"gasPrice":gasPrice})
             print(f"Submitted trueval, txhash: {tx.hex()}")
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except Exception as e:
             print(e)
             return None
     
     def redeem_unused_slot_revenue(self,block):
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         try:
-            tx = self.contract_instance.functions.redeemUnusedSlotRevenue(block).transact({"from":owner,"gasPrice":gasPrice})
+            tx = self.contract_instance.functions.redeemUnusedSlotRevenue(block).transact({"from":self.config.owner,"gasPrice":gasPrice})
             print(f"redeem_unused_slot_revenue tx: {tx.hex()}")
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except Exception as e:
             print(e)
             return None
 
     def get_block(self,block):
-        return w3.eth.get_block(block)
+        return self.config.w3.eth.get_block(block)
     
 
 class FixedRate:
-    def __init__(self, config: ContractConfig, address: str):
+    def __init__(self, config: Web3Config, address: str):
         self.contract_address = config.w3.to_checksum_address(address)
         self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('FixedRateExchange'))
         self.config = config
 
     def get_dt_price(self, exchangeId):
-        return self.contract_instance.functions.calcBaseInGivenOutDT(exchangeId,w3.to_wei('1','ether'),0).call()
+        return self.contract_instance.functions.calcBaseInGivenOutDT(exchangeId,self.config.w3.to_wei('1','ether'),0).call()
 
     def buy_dt(self,exchange_id,baseTokenAmount):
-        gasPrice = w3.eth.gas_price
+        gasPrice = self.config.w3.eth.gas_price
         try:
-            tx = self.contract_instance.functions.buyDT(exchange_id, w3.to_wei('1','ether'),baseTokenAmount, ZERO_ADDRESS, 0).transact({"from":owner,"gasPrice":gasPrice})
+            tx = self.contract_instance.functions.buyDT(exchange_id, self.config.w3.to_wei('1','ether'),baseTokenAmount, ZERO_ADDRESS, 0).transact({"from":self.config.owner,"gasPrice":gasPrice})
             print(f"Bought 1 DT tx: {tx.hex()}")
-            receipt = w3.eth.wait_for_transaction_receipt(tx)
+            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
             return receipt
         except Exception as e:
             print(e)
