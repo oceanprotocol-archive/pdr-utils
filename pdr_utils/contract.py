@@ -67,8 +67,9 @@ class PredictorContract:
         self.config = config
         self.contract_address = config.w3.to_checksum_address(address)
         self.contract_instance = config.w3.eth.contract(address=config.w3.to_checksum_address(address), abi=get_contract_abi('ERC20Template3'))
-        self.token = Token(config, stake_token)
         stake_token=self.get_stake_token()
+        self.token = Token(config, stake_token)
+        
 
     def is_valid_subscription(self):
         return self.contract_instance.functions.isValidSubscription(self.config.owner).call()
