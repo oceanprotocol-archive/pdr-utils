@@ -119,7 +119,7 @@ class PredictorContract:
         return(auth)
     def get_max_gas(self):
         """ Returns max block gas"""
-        block = self.config.w3.eth.get_block("latest", full_transactions=False)
+        block = self.config.w3.eth.get_block(self.config.w3.eth.block_number, full_transactions=False)
         return int(block['gasLimit']*0.99)
     
     def buy_and_start_subscription(self,gasLimit=None,wait_for_receipt=True):
