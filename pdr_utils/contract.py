@@ -166,7 +166,7 @@ class PredictorContract:
             call_params = {
                     "from":self.config.owner,
                     "gasPrice": gasPrice,
-                    'nonce': self.config.w3.eth.get_transaction_count(self.config.owner),
+#                    'nonce': self.config.w3.eth.get_transaction_count(self.config.owner),
             }
             if gasLimit is None:
                 try:    
@@ -228,7 +228,7 @@ class PredictorContract:
             (nom, denom) = self.contract_instance.functions.getAggPredval(block,auth).call({"from":self.config.owner})
             print(f" Got {nom} and {denom}")
             if denom==0:
-                return None
+                return 0
             return nom/denom
         except Exception as e:
             print("Failed to call getAggPredval")
