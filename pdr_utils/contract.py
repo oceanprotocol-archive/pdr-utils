@@ -185,11 +185,14 @@ class PredictorContract:
             return None
     
     def buy_many(self,how_many,gasLimit=None,wait_for_receipt=False):
+        """ Buys multiple accesses and returns tx hashes"""
+        txs=[]
         if how_many<1:
             return
         print(f"Buying {how_many} accesses....")
         for i in range(0,how_many):
-            self.buy_and_start_subscription(gasLimit,wait_for_receipt)
+            txs.append(self.buy_and_start_subscription(gasLimit,wait_for_receipt))
+        return txs
     
     def get_exchanges(self):
         return self.contract_instance.functions.getFixedRates().call()
