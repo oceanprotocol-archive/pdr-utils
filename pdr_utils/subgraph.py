@@ -3,8 +3,7 @@ import requests
 from web3 import Web3
 
 
-def query_subgraph(query):
-    subgraph_url = os.getenv("SUBGRAPH_URL")
+def query_subgraph(subgraph_url, query):
     request = requests.post(subgraph_url, "", json={"query": query}, timeout=1.5)
     if request.status_code != 200:
         # pylint: disable=broad-exception-raised
@@ -15,61 +14,27 @@ def query_subgraph(query):
     return result
 
 
-def satisfies_filters(nft_data, filters):
-    if not nft_data:
-        return True
-
-    for filter_key, filter_values in filters.items():
-        if not filter_values:
-            continue
-
-        values = [
-            nft_data_item["value"] for nft_data_item in nft_data
-            if nft_data_item["key"] == Web3.keccak(filter_key.encode("utf-8")).hex()
-        ]
-
-        if not values:
-            continue
-
-        value = values[0]
-
-        if value not in filter_values:
-            return False
-
-    return True
-
-
-def hexify_keys(env_var):
-    keys = os.getenv(env_var, None)
-
-    if not keys:
-        return None
-
-    keys = keys.split(",")
-
-    return [Web3.to_hex(text=key) for key in keys]
-
-
-def filter_contracts(new_orders):
-    filters = {
-        "pair": hexify_keys("PAIR_FILTER"),
-        "timeframe": hexify_keys("TIMEFRAME_FILTER"),
-        "source": hexify_keys("SOURCE_FILTER")
-    }
-
-    return [
-        new_order for new_order in new_orders
-        if satisfies_filters(
-            new_order["token"]["nft"]["nftData"],
-            filters
-        )
-    ]
-
-
-def get_all_interesting_prediction_contracts():
+def get_all_interesting_prediction_contracts(
+    subgraph_url, pairs=None, timeframes=None, sources=None, owners=None
+):
     chunk_size = 1000  # max for subgraph = 1000
     offset = 0
     contracts = {}
+    # prepare keys
+    owners_filter = []
+    pairs_filter = []
+    timeframes_filter = []
+    sources_filter = []
+    if owners:
+        owners_filter = [owner.lower() for owner in owners.split(",")]
+    if pairs:
+        pairs_filter = [pair for pair in pairs.split(",") if pairs]
+    if timeframes:
+        timeframes_filter = [
+            timeframe for timeframe in timeframes.split(",") if timeframes
+        ]
+    if sources:
+        sources_filter = [source for source in sources.split(",") if sources]
 
     while True:
         query = """
@@ -81,6 +46,9 @@ def get_all_interesting_prediction_contracts():
                     name
                     symbol
                     nft {
+                        owner {
+                            id
+                        }
                         nftData {
                             key
                             value
@@ -98,20 +66,58 @@ def get_all_interesting_prediction_contracts():
         )
         offset += chunk_size
         try:
-            result = query_subgraph(query)
-            new_orders = filter_contracts(result["data"]["predictContracts"])
-
-            if new_orders == []:
+            result = query_subgraph(subgraph_url, query)
+            if result["data"]["predictContracts"] == []:
                 break
-            for order in new_orders:
-                contracts[order["id"]] = {
-                    "name": order["token"]["name"],
-                    "address": order["id"],
-                    "symbol": order["token"]["symbol"],
-                    "blocks_per_epoch": order["blocksPerEpoch"],
-                    "blocks_per_subscription": order["blocksPerSubscription"],
+            for contract in result["data"]["predictContracts"]:
+                # loop 725 values and get what we need
+                info = {
+                    "pair": None,
+                    "base": None,
+                    "quote": None,
+                    "source": None,
+                    "timeframe": None,
+                }
+                for nftData in contract["token"]["nft"]["nftData"]:
+                    for info_key, info_values in info.items():
+                        if (
+                            nftData["key"]
+                            == Web3.keccak(info_key.encode("utf-8")).hex()
+                        ):
+                            info[info_key] = Web3.to_text(hexstr=nftData["value"])
+                # now do filtering
+                if (
+                    (
+                        len(owners_filter) > 0
+                        and contract["token"]["nft"]["owner"]["id"] not in owners_filter
+                    )
+                    or (
+                        len(pairs_filter) > 0
+                        and info["pair"]
+                        and info["pair"] not in pairs_filter
+                    )
+                    or (
+                        len(timeframes_filter) > 0
+                        and info["timeframe"]
+                        and info["timeframe"] not in timeframes_filter
+                    )
+                    or (
+                        len(sources_filter) > 0
+                        and info["source"]
+                        and info["source"] not in sources_filter
+                    )
+                ):
+                    continue
+
+                contracts[contract["id"]] = {
+                    "name": contract["token"]["name"],
+                    "address": contract["id"],
+                    "symbol": contract["token"]["symbol"],
+                    "blocks_per_epoch": contract["blocksPerEpoch"],
+                    "blocks_per_subscription": contract["blocksPerSubscription"],
                     "last_submited_epoch": 0,
                 }
+                contracts[contract["id"]].update(info)
         except Exception as e:
             print(e)
             return {}
