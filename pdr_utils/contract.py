@@ -64,9 +64,9 @@ class Token:
             tx = self.contract_instance.functions.approve(spender, amount).transact(
                 {"from": self.config.owner, "gasPrice": gasPrice}
             )
-            if wait_for_receipt:
-                self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return tx
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except:
             return None
 
@@ -202,9 +202,9 @@ class PredictorContract:
             tx = self.contract_instance.functions.buyFromFreAndOrder(
                 orderParams, freParams
             ).transact(call_params)
-            if wait_for_receipt:
-                self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return tx
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
@@ -267,16 +267,16 @@ class PredictorContract:
             print(e)
             return None
 
-    def payout(self, slot):
+    def payout(self, slot, wait_for_receipt=False):
         """Claims the payout for a slot"""
         gasPrice = self.config.w3.eth.gas_price
         try:
             tx = self.contract_instance.functions.payout(
                 slot, self.config.owner
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
-            print(f"Submitted payout, txhash: {tx.hex()}")
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
@@ -284,9 +284,11 @@ class PredictorContract:
     def soonest_block_to_predict(self, block):
         return self.contract_instance.functions.soonestBlockToPredict(block).call()
 
-    def submit_prediction(self, predicted_value, stake_amount, prediction_block):
+    def submit_prediction(
+        self, predicted_value, stake_amount, prediction_block, wait_for_receipt=True
+    ):
         """Sumbits a prediction"""
-        # TO DO - check allowence
+        # TO DO - check allowence first, only do approve if needed
         amount_wei = self.config.w3.to_wei(str(stake_amount), "ether")
         self.token.approve(self.contract_address, amount_wei)
         gasPrice = self.config.w3.eth.gas_price
@@ -295,8 +297,9 @@ class PredictorContract:
                 predicted_value, amount_wei, prediction_block
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
             print(f"Submitted prediction, txhash: {tx.hex()}")
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
@@ -309,7 +312,9 @@ class PredictorContract:
             {"from": self.config.owner}
         )
 
-    def submit_trueval(self, true_val, block, float_value, cancel_round):
+    def submit_trueval(
+        self, true_val, block, float_value, cancel_round, wait_for_receipt=True
+    ):
         gasPrice = self.config.w3.eth.gas_price
         try:
             fl_value = self.config.w3.to_wei(str(float_value), "ether")
@@ -317,21 +322,22 @@ class PredictorContract:
                 block, true_val, fl_value, cancel_round
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
             print(f"Submitted trueval, txhash: {tx.hex()}")
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
 
-    def redeem_unused_slot_revenue(self, block):
+    def redeem_unused_slot_revenue(self, block, wait_for_receipt=True):
         gasPrice = self.config.w3.eth.gas_price
         try:
             tx = self.contract_instance.functions.redeemUnusedSlotRevenue(
                 block
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
-            print(f"redeem_unused_slot_revenue tx: {tx.hex()}")
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
+            if not wait_for_receipt:
+                return tx
+            return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
@@ -353,23 +359,6 @@ class FixedRate:
         return self.contract_instance.functions.calcBaseInGivenOutDT(
             exchangeId, self.config.w3.to_wei("1", "ether"), 0
         ).call()
-
-    def buy_dt(self, exchange_id, baseTokenAmount):
-        gasPrice = self.config.w3.eth.gas_price
-        try:
-            tx = self.contract_instance.functions.buyDT(
-                exchange_id,
-                self.config.w3.to_wei("1", "ether"),
-                baseTokenAmount,
-                ZERO_ADDRESS,
-                0,
-            ).transact({"from": self.config.owner, "gasPrice": gasPrice})
-            print(f"Bought 1 DT tx: {tx.hex()}")
-            receipt = self.config.w3.eth.wait_for_transaction_receipt(tx)
-            return receipt
-        except Exception as e:
-            print(e)
-            return None
 
 
 def get_contract_abi(contract_name):
