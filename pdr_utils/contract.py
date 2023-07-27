@@ -12,12 +12,17 @@ from pathlib import Path
 from web3 import Web3, HTTPProvider, WebsocketProvider
 from web3.middleware import construct_sign_and_send_raw_middleware
 from os.path import expanduser
-
+from sapphire_wrapper import wrapper
 import artifacts  # noqa
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 keys = KeyAPI(NativeECCBackend)
 
+def get_rpc_url(chainid: int) -> str:
+    if chainid == "23294":
+        return "https://sapphire.oasis.io"
+    if chain_id == "23295":
+        return "https://testnet.sapphire.oasis.dev"
 
 class Web3Config:
     def __init__(self, rpc_url: str, private_key: str):
@@ -293,9 +298,24 @@ class PredictorContract:
         self.token.approve(self.contract_address, amount_wei)
         gasPrice = self.config.w3.eth.gas_price
         try:
+            data = self.contract_instance.encodeABI(
+                fn_name="submitPredval", args=[predicted_value, amount_wei, prediction_block]
+            )
+            sender = self.config.owner
+            receiver = self.contract_instance.address
+            wrapper.send_encrypted_sapphire_tx()
+            pk = self.config.account.private_key
+
             tx = self.contract_instance.functions.submitPredval(
-                predicted_value, amount_wei, prediction_block
-            ).transact({"from": self.config.owner, "gasPrice": gasPrice})
+                pk,
+                sender,
+                receiver,
+                get_rpc_url(self.config.w3.eth.chain_id),
+                0,
+                1000000,
+                data
+            )
+
             print(f"Submitted prediction, txhash: {tx.hex()}")
             if not wait_for_receipt:
                 return tx
