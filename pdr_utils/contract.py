@@ -21,8 +21,10 @@ keys = KeyAPI(NativeECCBackend)
 def get_rpc_url(chainid: int) -> str:
     if chainid == "23294":
         return "https://sapphire.oasis.io"
-    if chain_id == "23295":
+    elif chain_id == "23295":
         return "https://testnet.sapphire.oasis.dev"
+    else:
+        raise Exception("chainid not supported")
 
 class Web3Config:
     def __init__(self, rpc_url: str, private_key: str):
