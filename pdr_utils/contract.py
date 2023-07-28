@@ -19,9 +19,9 @@ ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 keys = KeyAPI(NativeECCBackend)
 
 def get_rpc_url(chainid: int) -> str:
-    if chainid == "23294":
+    if chainid == 23294:
         return "https://sapphire.oasis.io"
-    elif chain_id == "23295":
+    elif chainid == 23295:
         return "https://testnet.sapphire.oasis.dev"
     else:
         raise Exception("chainid not supported")
@@ -31,10 +31,7 @@ class Web3Config:
         self.rpc_url = rpc_url
 
         if rpc_url is None:
-            raise ValueError("You must set RPC_URL environment variable")
-
-        if private_key is None:
-            raise ValueError("You must set PRIVATE_KEY environment variable")
+            raise ValueError("You must set RPC_URL variable")
 
         self.w3 = Web3(Web3.HTTPProvider(rpc_url))
 
@@ -93,6 +90,9 @@ class PredictorContract:
         return self.contract_instance.functions.isValidSubscription(
             self.config.owner
         ).call()
+    
+    def getid(self):
+        return self.contract_instance.functions.getId().call()
 
     def get_empty_provider_fee(self):
         return {
@@ -292,7 +292,7 @@ class PredictorContract:
         return self.contract_instance.functions.soonestBlockToPredict(block).call()
 
     def submit_prediction(
-        self, predicted_value, stake_amount, prediction_block, wait_for_receipt=True
+        self, predicted_value: bool, stake_amount: int, prediction_block: int, wait_for_receipt=True
     ):
         """Sumbits a prediction"""
         # TO DO - check allowence first, only do approve if needed
@@ -305,10 +305,8 @@ class PredictorContract:
             )
             sender = self.config.owner
             receiver = self.contract_instance.address
-            wrapper.send_encrypted_sapphire_tx()
-            pk = self.config.account.private_key
-
-            tx = self.contract_instance.functions.submitPredval(
+            pk = self.config.account.key.hex()[2:]
+            tx = wrapper.send_encrypted_sapphire_tx(
                 pk,
                 sender,
                 receiver,
@@ -318,10 +316,12 @@ class PredictorContract:
                 data
             )
 
-            print(f"Submitted prediction, txhash: {tx.hex()}")
-            if not wait_for_receipt:
-                return tx
-            return self.config.w3.eth.wait_for_transaction_receipt(tx)
+        
+
+            print(f"Submitted prediction, txhash: {tx}")
+            # if not wait_for_receipt:
+            #     return tx
+            # return self.config.w3.eth.wait_for_transaction_receipt(tx)
         except Exception as e:
             print(e)
             return None
