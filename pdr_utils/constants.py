@@ -1,0 +1,3 @@
+ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+SAPPHIRE_TEST_RPC = "https://sapphire.oasis.io"
+SAPPHIRE_MAINNET_RPC = "https://testnet.sapphire.oasis.dev"
