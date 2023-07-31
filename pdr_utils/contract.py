@@ -15,7 +15,8 @@ from os.path import expanduser
 from sapphire_wrapper import wrapper
 import artifacts  # noqa
 
-ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
+from pdr_utils.constants import ZERO_ADDRESS, SAPPHIRE_TEST_RPC, SAPPHIRE_MAINNET_RPC
+
 keys = KeyAPI(NativeECCBackend)
 
 def get_rpc_url(chainid: int) -> str:
@@ -23,8 +24,12 @@ def get_rpc_url(chainid: int) -> str:
         return "https://sapphire.oasis.io"
     elif chainid == 23295:
         return "https://testnet.sapphire.oasis.dev"
-    else:
-        raise Exception("chainid not supported")
+    elif chain_id == 8996:
+        return "http://localhost:8545"
+    return ""
+
+def is_sapphire_rpc(url: str) -> bool:
+    return url in [SAPPHIRE_TEST_RPC, SAPPHIRE_MAINNET_RPC]
 
 class Web3Config:
     def __init__(self, rpc_url: str, private_key: str):
@@ -44,7 +49,6 @@ class Web3Config:
             self.w3.middleware_onion.add(
                 construct_sign_and_send_raw_middleware(self.account)
             )
-
 
 class Token:
     def __init__(self, config: Web3Config, address: str):
@@ -300,28 +304,33 @@ class PredictorContract:
         self.token.approve(self.contract_address, amount_wei)
         gasPrice = self.config.w3.eth.gas_price
         try:
-            data = self.contract_instance.encodeABI(
-                fn_name="submitPredval", args=[predicted_value, amount_wei, prediction_block]
-            )
-            sender = self.config.owner
-            receiver = self.contract_instance.address
-            pk = self.config.account.key.hex()[2:]
-            tx = wrapper.send_encrypted_sapphire_tx(
-                pk,
-                sender,
-                receiver,
-                get_rpc_url(self.config.w3.eth.chain_id),
-                0,
-                1000000,
-                data
-            )
+            txhash = None
+            if is_sapphire_rpc(self.config.rpc_url):
+                data = self.contract_instance.encodeABI(
+                    fn_name="submitPredval", args=[predicted_value, amount_wei, prediction_block]
+                )
+                sender = self.config.owner
+                receiver = self.contract_instance.address
+                pk = self.config.account.key.hex()[2:]
+                txhash = wrapper.send_encrypted_sapphire_tx(
+                    pk,
+                    sender,
+                    receiver,
+                    get_rpc_url(self.config.w3.eth.chain_id),
+                    0,
+                    1000000,
+                    data
+                )
+            else: 
+                tx = self.contract_instance.functions.submitPredval(
+                    predicted_value, amount_wei, prediction_block
+                ).transact({"from": self.config.owner, "gasPrice": gasPrice})
+                txhash = tx.hex() 
 
-        
-
-            print(f"Submitted prediction, txhash: {tx}")
-            # if not wait_for_receipt:
-            #     return tx
-            # return self.config.w3.eth.wait_for_transaction_receipt(tx)
+            print(f"Submitted prediction, txhash: {txhash}")
+            if not wait_for_receipt:
+                return txhash
+            return self.config.w3.eth.wait_for_transaction_receipt(txhash)
         except Exception as e:
             print(e)
             return None
