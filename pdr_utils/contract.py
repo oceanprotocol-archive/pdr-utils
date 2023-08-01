@@ -15,24 +15,12 @@ from os.path import expanduser
 from sapphire_wrapper import wrapper
 import artifacts  # noqa
 
-from pdr_utils.constants import ZERO_ADDRESS, SAPPHIRE_TEST_RPC, SAPPHIRE_MAINNET_RPC
+from pdr_utils.constants import ZERO_ADDRESS, SAPPHIRE_TESTNET_CHAINID, SAPPHIRE_MAINNET_CHAINID
 
 keys = KeyAPI(NativeECCBackend)
 
-
-def get_rpc_url(chainid: int) -> str:
-    if chainid == 23294:
-        return "https://sapphire.oasis.io"
-    elif chainid == 23295:
-        return "https://testnet.sapphire.oasis.dev"
-    elif chain_id == 8996:
-        return "http://localhost:8545"
-    return ""
-
-
-def is_sapphire_rpc(url: str) -> bool:
-    return url in [SAPPHIRE_TEST_RPC, SAPPHIRE_MAINNET_RPC]
-
+def is_sapphire_network(chain_id: int) -> bool:
+    return chain_id in [SAPPHIRE_TESTNET_CHAINID, SAPPHIRE_MAINNET_CHAINID]
 
 def send_encrypted_tx(
     contract_instance,
@@ -363,7 +351,7 @@ class PredictorContract:
         gasPrice = self.config.w3.eth.gas_price
         try:
             txhash = None
-            if is_sapphire_rpc(self.config.rpc_url):
+            if is_sapphire_network(self.config.w3.eth.chain_id):
                 data = self.contract_instance.encodeABI(
                     fn_name="submitPredval",
                     args=[predicted_value, amount_wei, prediction_ts],
@@ -378,7 +366,10 @@ class PredictorContract:
                     pk,
                     sender,
                     receiver,
-                    get_rpc_url(self.config.w3.eth.chain_id),
+                    self.config.rpc_url,
+                    0,
+                    1000000,
+                    data
                 )
                 print("Encrypted transaction status code:", res)
             else:
