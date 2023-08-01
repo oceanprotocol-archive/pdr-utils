@@ -243,10 +243,10 @@ class PredictorContract:
     def get_current_epoch(self):
         return self.contract_instance.functions.curEpoch().call()
 
-    def get_blocksPerEpoch(self):
-        return self.contract_instance.functions.blocksPerEpoch().call()
+    def get_secondsPerEpoch(self):
+        return self.contract_instance.functions.secondsPerEpoch().call()
 
-    def get_agg_predval(self, block):
+    def get_agg_predval(self, timestamp):
         """check subscription"""
         if not self.is_valid_subscription():
             print("Buying a new subscription...")
@@ -256,7 +256,7 @@ class PredictorContract:
             print("Reading contract values...")
             auth = self.get_auth_signature()
             (nom, denom) = self.contract_instance.functions.getAggPredval(
-                block, auth
+                timestamp, auth
             ).call({"from": self.config.owner})
             print(f" Got {nom} and {denom}")
             if denom == 0:
@@ -281,11 +281,11 @@ class PredictorContract:
             print(e)
             return None
 
-    def soonest_block_to_predict(self, block):
-        return self.contract_instance.functions.soonestBlockToPredict(block).call()
+    def soonest_timestamp_to_predict(self, timestamp):
+        return self.contract_instance.functions.soonestEpochToPredict(timestamp).call()
 
     def submit_prediction(
-        self, predicted_value, stake_amount, prediction_block, wait_for_receipt=True
+        self, predicted_value, stake_amount, prediction_ts, wait_for_receipt=True
     ):
         """Sumbits a prediction"""
         # TO DO - check allowence first, only do approve if needed
@@ -294,7 +294,7 @@ class PredictorContract:
         gasPrice = self.config.w3.eth.gas_price
         try:
             tx = self.contract_instance.functions.submitPredval(
-                predicted_value, amount_wei, prediction_block
+                predicted_value, amount_wei, prediction_ts
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
             print(f"Submitted prediction, txhash: {tx.hex()}")
             if not wait_for_receipt:
@@ -304,8 +304,8 @@ class PredictorContract:
             print(e)
             return None
 
-    def get_trueValSubmitTimeoutBlock(self):
-        return self.contract_instance.functions.trueValSubmitTimeoutBlock().call()
+    def get_trueValSubmitTimeoutEpoch(self):
+        return self.contract_instance.functions.trueValSubmitTimeoutEpoch().call()
 
     def get_prediction(self, slot):
         return self.contract_instance.functions.getPrediction(slot).call(
@@ -313,13 +313,13 @@ class PredictorContract:
         )
 
     def submit_trueval(
-        self, true_val, block, float_value, cancel_round, wait_for_receipt=True
+        self, true_val, timestamp, float_value, cancel_round, wait_for_receipt=True
     ):
         gasPrice = self.config.w3.eth.gas_price
         try:
             fl_value = self.config.w3.to_wei(str(float_value), "ether")
             tx = self.contract_instance.functions.submitTrueVal(
-                block, true_val, fl_value, cancel_round
+                timestamp, true_val, fl_value, cancel_round
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
             print(f"Submitted trueval, txhash: {tx.hex()}")
             if not wait_for_receipt:
@@ -329,11 +329,11 @@ class PredictorContract:
             print(e)
             return None
 
-    def redeem_unused_slot_revenue(self, block, wait_for_receipt=True):
+    def redeem_unused_slot_revenue(self, timestamp, wait_for_receipt=True):
         gasPrice = self.config.w3.eth.gas_price
         try:
             tx = self.contract_instance.functions.redeemUnusedSlotRevenue(
-                block
+                timestamp
             ).transact({"from": self.config.owner, "gasPrice": gasPrice})
             if not wait_for_receipt:
                 return tx
