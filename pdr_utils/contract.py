@@ -240,10 +240,14 @@ class PredictorContract:
         ) = exchange.get_dt_price(exchange_id)
         return baseTokenAmount
 
-    def get_current_epoch(self):
-        return self.contract_instance.functions.curEpoch().call()
+    def get_current_epoch(self) -> int:
+        # curEpoch now returns the timestamp of current candle start
+        # this function returns the "epoch number" that increases by one each secondsPerEpoch seconds
+        current_epoch_ts = self.contract_instance.functions.curEpoch().call()
+        seconds_per_epoch = self.get_secondsPerEpoch()
+        return int(current_epoch_ts / seconds_per_epoch)
 
-    def get_secondsPerEpoch(self):
+    def get_secondsPerEpoch(self) -> int:
         return self.contract_instance.functions.secondsPerEpoch().call()
 
     def get_agg_predval(self, timestamp):
