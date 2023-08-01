@@ -19,7 +19,7 @@ install_requirements = [
     "pathlib",
     "eth-keys",
     "ocean-contracts==2.0.0a2",
-    "pdr-sapphire-wrapper"
+    "pdr-sapphire-wrapper",
 ]
 
 # Required to run setup.py:
